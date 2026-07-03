@@ -66,13 +66,13 @@
 
     <header class="sticky top-0 z-40 bg-white/95 dark:bg-dark-900/95 border-b border-stone-200 dark:border-stone-900 shadow-sm glassmorphism transition-all">
         <div class="container mx-auto px-4 py-3 flex justify-between items-center">
-            <div class="flex items-center gap-3 cursor-pointer select-none" ondblclick="openAdminLoginModal()" title="انقر نقراً مزدوجاً لفتح بوابة الإدارة">
-                <div class="w-14 h-14 rounded-full border-2 border-primary-500 flex items-center justify-center bg-black shadow-inner overflow-hidden p-0.5">
+            <div class="flex items-center gap-4 cursor-pointer select-none" ondblclick="openAdminLoginModal()" title="انقر نقراً مزدوجاً لفتح بوابة الإدارة">
+                <div class="w-16 h-16 rounded-full border-2 border-primary-500 flex items-center justify-center bg-black shadow-lg overflow-hidden p-0.5">
                     <img src="https://i.ibb.co/8g218cXH/IMG-20260703-WA0061.jpg" class="w-full h-full object-cover rounded-full" alt="Selim Exports Logo" />
                 </div>
                 <div>
-                    <h1 class="text-lg md:text-xl font-black tracking-wider text-dark-950 dark:text-white">SELIM <span class="text-primary-500">EXPORTS</span></h1>
-                    <p class="text-[9px] text-leaf-500 dark:text-gold-500/80 uppercase tracking-widest font-extrabold"><span data-i18n="header_tagline">Premium Natural Charcoal</span></p>
+                    <h1 class="text-lg md:text-2xl font-black tracking-wider text-dark-950 dark:text-white">سليم للفحم النباتي</h1>
+                    <p class="text-[10px] md:text-xs font-extrabold text-primary-500 uppercase tracking-widest">SELIM <span class="text-gold-500 dark:text-gold-400">EXPORTS</span></p>
                 </div>
             </div>
             <div class="flex items-center gap-4">
@@ -213,6 +213,7 @@
                 </div>
                 <div class="flex gap-2 border-b border-stone-200 dark:border-stone-800 mb-6 pb-2 flex-wrap">
                     <button onclick="switchAdminTab('products')" id="tab-btn-products" class="px-4 py-2 text-xs font-black rounded-lg bg-primary-500 text-white shadow-md transition-all">المنتجات</button>
+                    <button onclick="switchAdminTab('offers')" id="tab-btn-offers" class="px-4 py-2 text-xs font-bold rounded-lg bg-stone-100 text-stone-600 dark:bg-dark-800 dark:text-stone-400 transition-all">العروض</button>
                     <button onclick="switchAdminTab('media')" id="tab-btn-media" class="px-4 py-2 text-xs font-bold rounded-lg bg-stone-100 text-stone-600 dark:bg-dark-800 dark:text-stone-400 transition-all">المعرض</button>
                     <button onclick="switchAdminTab('settings')" id="tab-btn-settings" class="px-4 py-2 text-xs font-bold rounded-lg bg-stone-100 text-stone-600 dark:bg-dark-800 dark:text-stone-400 transition-all">الإعدادات</button>
                     <button onclick="switchAdminTab('channels')" id="tab-btn-channels" class="px-4 py-2 text-xs font-bold rounded-lg bg-stone-100 text-stone-600 dark:bg-dark-800 dark:text-stone-400 transition-all">القنوات</button>
@@ -240,7 +241,12 @@
                             </div>
                         </div>
                         <div><label class="block text-[11px] font-bold text-stone-400 mb-1">مواصفات ومميزات الشحنة</label><textarea id="prod-desc" rows="2" placeholder="رماد ثلجي، كربون مرتفع..." class="w-full bg-white dark:bg-dark-900 border border-stone-200 dark:border-stone-800 rounded-xl px-3 py-2 text-xs focus:outline-none"></textarea></div>
-                        <div><label class="flex items-center gap-2 cursor-pointer text-xs text-stone-400 font-semibold"><input type="checkbox" id="prod-is-offer" class="w-4 h-4 rounded accent-primary-500" /> <span>إدراج في العروض الحصرية</span></label></div>
+                        <div><label class="flex items-center gap-2 cursor-pointer text-xs text-stone-400 font-semibold"><input type="checkbox" id="prod-is-offer" class="w-4 h-4 rounded accent-primary-500" onchange="toggleOfferDetails()" /> <span>إدراج في العروض الحصرية</span></label></div>
+                        <div id="offer-details" class="space-y-3 hidden">
+                            <div><label class="block text-[11px] font-bold text-stone-400 mb-1">نسبة الخصم (%)</label><input type="number" id="prod-discount" placeholder="مثلاً 15" class="w-full bg-white dark:bg-dark-900 border border-stone-200 dark:border-stone-800 rounded-xl px-3 py-2 text-xs focus:outline-none" /></div>
+                            <div><label class="block text-[11px] font-bold text-stone-400 mb-1">تاريخ انتهاء العرض</label><input type="date" id="prod-offer-end" class="w-full bg-white dark:bg-dark-900 border border-stone-200 dark:border-stone-800 rounded-xl px-3 py-2 text-xs focus:outline-none" /></div>
+                            <div><label class="block text-[11px] font-bold text-stone-400 mb-1">وصف مختصر للعرض</label><input type="text" id="prod-offer-desc" placeholder="خصم على الكميات الكبيرة" class="w-full bg-white dark:bg-dark-900 border border-stone-200 dark:border-stone-800 rounded-xl px-3 py-2 text-xs focus:outline-none" /></div>
+                        </div>
                         <button onclick="saveProductToCloud()" id="admin-save-product-btn" class="btn-primary w-full font-black py-2.5 rounded-xl text-white text-xs transition-all shadow-md">نشر وحفظ في السحاب</button>
                     </div>
                     <div class="lg:col-span-2 space-y-4">
@@ -250,6 +256,21 @@
                                     <tr><th class="p-3">اسم الصنف</th><th class="p-3">السعر</th><th class="p-3">التصنيف</th><th class="p-3">العروض</th><th class="p-3 text-center">إجراءات</th></tr>
                                 </thead>
                                 <tbody id="admin-products-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- تبويب العروض -->
+                <div id="admin-tab-offers" class="space-y-6 hidden">
+                    <div class="bg-stone-50 dark:bg-dark-950 p-6 rounded-2xl border border-stone-200 dark:border-stone-800">
+                        <h3 class="text-xs font-bold text-primary-500 dark:text-primary-400 pb-1 border-b border-stone-200 dark:border-stone-800 mb-4"><i class="fa-solid fa-tags ml-1"></i> إدارة العروض الخاصة</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-right text-xs text-stone-500 dark:text-stone-400">
+                                <thead class="bg-white dark:bg-dark-900 text-stone-700 dark:text-stone-300">
+                                    <tr><th class="p-3">المنتج</th><th class="p-3">السعر</th><th class="p-3">نسبة الخصم</th><th class="p-3">تاريخ الانتهاء</th><th class="p-3">الحالة</th><th class="p-3 text-center">إجراءات</th></tr>
+                                </thead>
+                                <tbody id="admin-offers-table-body"></tbody>
                             </table>
                         </div>
                     </div>
