@@ -47,3 +47,14 @@ body { font-family: 'Cairo', 'Poppins', sans-serif; transition: background-color
 #main-content { display: block; }
 .modal-enter { animation: modalFadeIn 0.3s ease-out; }
 @keyframes modalFadeIn { from { opacity: 0; } to { opacity: 1; } }
+.offer-discount-badge {
+    position: absolute;
+    top: 0.5rem;
+    left: 0.5rem;
+    background: #ef4444;
+    color: white;
+    font-size: 0.7rem;
+    font-weight: bold;
+    padding: 0.15rem 0.5rem;
+    border-radius: 0.5rem;
+}
