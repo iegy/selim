@@ -54,7 +54,11 @@ function extractYouTubeId(url) {
     return match ? match[1] : null;
 }
 
-// تعريف الدوال العامة التي يحتاجها main.js
+window.toggleOfferDetails = function() {
+    const checked = document.getElementById('prod-is-offer').checked;
+    document.getElementById('offer-details').classList.toggle('hidden', !checked);
+};
+
 window.editProduct = function(id) {
     const product = window.productsList.find(p => p.id === id);
     if (!product) return;
@@ -68,6 +72,10 @@ window.editProduct = function(id) {
     document.getElementById('prod-image-url').value = product.image || '';
     document.getElementById('prod-desc').value = product.desc || '';
     document.getElementById('prod-is-offer').checked = product.isOffer === true || product.isOffer === 'true';
+    document.getElementById('prod-discount').value = product.offerDiscount || '';
+    document.getElementById('prod-offer-end').value = product.offerEndDate || '';
+    document.getElementById('prod-offer-desc').value = product.offerDesc || '';
+    document.getElementById('offer-details').classList.toggle('hidden', !(product.isOffer === true || product.isOffer === 'true'));
     const previewImg = document.getElementById('image-preview');
     const previewContainer = document.getElementById('image-preview-container');
     if (product.image && previewImg) { previewImg.src = product.image; previewContainer.classList.remove('hidden'); }
@@ -87,15 +95,18 @@ window.saveProductToCloud = async function() {
     const imageUrlInput = document.getElementById('prod-image-url').value.trim();
     const desc = document.getElementById('prod-desc').value.trim() || 'فحم نباتي طبيعي فاخر.';
     const isOffer = document.getElementById('prod-is-offer').checked;
+    const offerDiscount = document.getElementById('prod-discount').value.trim();
+    const offerEndDate = document.getElementById('prod-offer-end').value;
+    const offerDesc = document.getElementById('prod-offer-desc').value.trim();
     const previewImg = document.getElementById('image-preview');
     if (!auth.currentUser || auth.currentUser.isAnonymous) { showToast('يجب تسجيل الدخول.', 'error'); return; }
     if (!name || isNaN(priceAmount) || priceAmount <= 0) { showToast('يرجى ملء الحقول بشكل صحيح.', 'warning'); return; }
     let image = 'https://images.unsplash.com/photo-1542332213-9b5a5a3fda35?q=80&w=600&auto=format&fit=crop';
     if (previewImg && previewImg.src && previewImg.src.startsWith('data:image')) {
-        showToast('تحذير: الصورة بتنسيق Base64 قد تسبب مشاكل في الحجم. يفضل استخدام رابط خارجي.', 'warning');
+        showToast('تحذير: الصورة بتنسيق Base64 قد تسبب مشاكل في الحجم.', 'warning');
         image = previewImg.src;
     } else if (imageUrlInput) image = imageUrlInput;
-    const productData = { name, tag, priceAmount, currency, unit, showPrice, image, desc, isOffer };
+    const productData = { name, tag, priceAmount, currency, unit, showPrice, image, desc, isOffer, offerDiscount, offerEndDate, offerDesc };
     try {
         if (window.editingProductId) {
             await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'products', window.editingProductId), productData);
@@ -106,7 +117,11 @@ window.saveProductToCloud = async function() {
             await addDoc(productsCollectionRef, productData);
             showToast('تم نشر المنتج 🚀', 'success');
         }
-        document.getElementById('prod-name').value = ''; document.getElementById('prod-tag').value = ''; document.getElementById('prod-price-amount').value = ''; document.getElementById('prod-unit').value = ''; document.getElementById('prod-image-url').value = ''; document.getElementById('prod-desc').value = ''; document.getElementById('prod-is-offer').checked = false; document.getElementById('image-preview-container').classList.add('hidden'); document.getElementById('prod-image-file').value = '';
+        ['prod-name','prod-tag','prod-price-amount','prod-unit','prod-image-url','prod-desc','prod-discount','prod-offer-end','prod-offer-desc'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('prod-is-offer').checked = false;
+        document.getElementById('offer-details').classList.add('hidden');
+        document.getElementById('image-preview-container').classList.add('hidden');
+        document.getElementById('prod-image-file').value = '';
     } catch (ex) { showToast('خطأ: ' + ex.message, 'error'); }
 };
 
@@ -254,7 +269,7 @@ window.importBackup = function(event) {
 };
 
 window.switchAdminTab = function(tab) {
-    ['products', 'media', 'settings', 'channels', 'backup'].forEach(t => {
+    ['products', 'offers', 'media', 'settings', 'channels', 'backup'].forEach(t => {
         const el = document.getElementById(`admin-tab-${t}`); if (el) el.classList.add('hidden');
         const btn = document.getElementById(`tab-btn-${t}`);
         if (btn) btn.className = 'px-4 py-2 text-xs font-bold rounded-lg bg-stone-100 text-stone-600 dark:bg-dark-800 dark:text-stone-400 hover:bg-stone-200 transition-all';
@@ -264,7 +279,108 @@ window.switchAdminTab = function(tab) {
     if (activeBtn) activeBtn.className = 'px-4 py-2 text-xs font-black rounded-lg bg-primary-500 text-white shadow-md transition-all';
 };
 
-// دالة renderUI الأساسية
+// ---- renderUI and helpers ----
+function renderAdminChannelsList() {
+    const c = document.getElementById('admin-channels-list'); if (!c) return;
+    c.innerHTML = '';
+    (window.websiteSettings.channels || []).forEach(ch => {
+        const d = document.createElement('div');
+        d.className = 'flex flex-wrap items-center gap-2 bg-white dark:bg-dark-900 p-3 rounded-xl border border-stone-200 dark:border-stone-800';
+        d.innerHTML = `<i class="${ch.icon} text-lg text-${ch.color}-500 w-8 text-center"></i>
+        <input type="text" value="${ch.label}" data-ch-id="${ch.id}" data-field="label" class="flex-1 min-w-[120px] bg-stone-50 dark:bg-dark-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1.5 text-xs channel-input" />
+        <input type="text" value="${ch.value}" data-ch-id="${ch.id}" data-field="value" class="flex-1 min-w-[120px] bg-stone-50 dark:bg-dark-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1.5 text-xs channel-input text-left font-mono" />
+        <select data-ch-id="${ch.id}" data-field="action" class="bg-stone-50 dark:bg-dark-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1.5 text-xs channel-input">
+            <option value="tel" ${ch.action==='tel'?'selected':''}>هاتف</option>
+            <option value="mailto" ${ch.action==='mailto'?'selected':''}>بريد</option>
+            <option value="whatsapp" ${ch.action==='whatsapp'?'selected':''}>واتساب</option>
+            <option value="text" ${ch.action==='text'?'selected':''}>نص</option>
+        </select>
+        <input type="text" value="${ch.icon}" data-ch-id="${ch.id}" data-field="icon" class="w-28 bg-stone-50 dark:bg-dark-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1.5 text-xs channel-input text-left font-mono" />
+        <select data-ch-id="${ch.id}" data-field="color" class="bg-stone-50 dark:bg-dark-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1.5 text-xs channel-input">
+            <option value="primary" ${ch.color==='primary'?'selected':''}>برتقالي</option>
+            <option value="gold" ${ch.color==='gold'?'selected':''}>ذهبي</option>
+            <option value="stone" ${ch.color==='stone'?'selected':''}>رمادي</option>
+            <option value="red" ${ch.color==='red'?'selected':''}>أحمر</option>
+            <option value="green" ${ch.color==='green'?'selected':''}>أخضر</option>
+            <option value="blue" ${ch.color==='blue'?'selected':''}>أزرق</option>
+            <option value="purple" ${ch.color==='purple'?'selected':''}>بنفسجي</option>
+        </select>
+        <button onclick="deleteChannel('${ch.id}')" class="w-7 h-7 rounded-lg bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white flex items-center justify-center shrink-0"><i class="fa-solid fa-xmark text-xs"></i></button>`;
+        c.appendChild(d);
+    });
+    c.querySelectorAll('.channel-input').forEach(inp => {
+        inp.addEventListener('change', function() {
+            const id = this.dataset.chId, f = this.dataset.field;
+            const idx = (window.websiteSettings.channels || []).findIndex(c => c.id === id);
+            if (idx >= 0) window.websiteSettings.channels[idx][f] = this.value;
+        });
+    });
+}
+
+function renderAdminSocialLinksList() {
+    const c = document.getElementById('admin-social-links-list'); if (!c) return;
+    c.innerHTML = '';
+    (window.websiteSettings.socialLinks || []).forEach(sl => {
+        const d = document.createElement('div');
+        d.className = 'flex flex-wrap items-center gap-2 bg-white dark:bg-dark-900 p-3 rounded-xl border border-stone-200 dark:border-stone-800';
+        d.innerHTML = `<i class="${sl.icon} text-lg text-${sl.color}-500 w-8 text-center"></i>
+        <input type="text" value="${sl.platform || ''}" data-sl-id="${sl.id}" data-field="platform" class="flex-1 min-w-[100px] bg-stone-50 dark:bg-dark-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1.5 text-xs social-input" />
+        <input type="text" value="${sl.url}" data-sl-id="${sl.id}" data-field="url" class="flex-1 min-w-[150px] bg-stone-50 dark:bg-dark-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1.5 text-xs social-input text-left font-mono" />
+        <input type="text" value="${sl.icon}" data-sl-id="${sl.id}" data-field="icon" class="w-28 bg-stone-50 dark:bg-dark-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1.5 text-xs social-input text-left font-mono" />
+        <select data-sl-id="${sl.id}" data-field="color" class="bg-stone-50 dark:bg-dark-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1.5 text-xs social-input">
+            <option value="primary" ${sl.color==='primary'?'selected':''}>برتقالي</option>
+            <option value="blue" ${sl.color==='blue'?'selected':''}>أزرق</option>
+            <option value="red" ${sl.color==='red'?'selected':''}>أحمر</option>
+            <option value="green" ${sl.color==='green'?'selected':''}>أخضر</option>
+            <option value="purple" ${sl.color==='purple'?'selected':''}>بنفسجي</option>
+            <option value="stone" ${sl.color==='stone'?'selected':''}>رمادي</option>
+            <option value="gold" ${sl.color==='gold'?'selected':''}>ذهبي</option>
+        </select>
+        <button onclick="deleteSocialLink('${sl.id}')" class="w-7 h-7 rounded-lg bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white flex items-center justify-center shrink-0"><i class="fa-solid fa-xmark text-xs"></i></button>`;
+        c.appendChild(d);
+    });
+    c.querySelectorAll('.social-input').forEach(inp => {
+        inp.addEventListener('change', function() {
+            const id = this.dataset.slId, f = this.dataset.field;
+            const idx = (window.websiteSettings.socialLinks || []).findIndex(s => s.id === id);
+            if (idx >= 0) window.websiteSettings.socialLinks[idx][f] = this.value;
+        });
+    });
+}
+
+function renderAdminMediaList() {
+    const list = document.getElementById('admin-media-list'); if (!list) return;
+    list.innerHTML = '';
+    window.mediaItems.forEach((item, index) => {
+        const div = document.createElement('div');
+        div.className = 'flex justify-between items-center bg-white dark:bg-dark-900 p-2 rounded-lg border border-stone-200 dark:border-stone-800 text-xs';
+        div.innerHTML = `<span>${item.title} (${item.type === 'image' ? 'صورة' : 'فيديو'})</span><button onclick="deleteMediaItem(${index})" class="text-red-500 hover:text-red-700"><i class="fa-solid fa-trash"></i></button>`;
+        list.appendChild(div);
+    });
+}
+
+function renderAdminOffersTable() {
+    const tbody = document.getElementById('admin-offers-table-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    const offerProducts = window.productsList.filter(p => p.isOffer === true || p.isOffer === 'true');
+    offerProducts.forEach(product => {
+        const tr = document.createElement('tr');
+        tr.className = "border-b border-stone-200 dark:border-stone-800";
+        tr.innerHTML = `
+            <td class="p-3 font-bold">${product.name}</td>
+            <td class="p-3">${product.priceAmount || ''} ${product.currency || ''}</td>
+            <td class="p-3">${product.offerDiscount || '-'}%</td>
+            <td class="p-3">${product.offerEndDate || 'غير محدد'}</td>
+            <td class="p-3"><span class="px-2 py-1 rounded text-[10px] font-black ${new Date(product.offerEndDate) < new Date() && product.offerEndDate ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}">${product.offerEndDate && new Date(product.offerEndDate) < new Date() ? 'منتهي' : 'ساري'}</span></td>
+            <td class="p-3 text-center">
+                <button onclick="editProduct('${product.id}')" class="w-7 h-7 rounded-lg bg-blue-500/10 hover:bg-blue-500 text-blue-500 hover:text-white"><i class="fa-solid fa-pen text-xs"></i></button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
 function renderUI() {
     const productsGrid = document.getElementById('products-grid');
     const offersGrid = document.getElementById('offers-grid');
@@ -379,7 +495,7 @@ function renderUI() {
         if (isOffer && offersGrid) {
             const offerCard = document.createElement('div');
             offerCard.className = "bg-white dark:bg-dark-800 border border-primary-500/10 rounded-2xl p-4 flex flex-col sm:flex-row gap-4 items-center shadow-sm hover-lift";
-            offerCard.innerHTML = `<img src="${product.image || 'https://images.unsplash.com/photo-1542332213-9b5a5a3fda35?q=80&w=600&auto=format&fit=crop'}" class="w-20 h-20 rounded-xl object-cover" alt=""><div class="space-y-1 text-center sm:text-right flex-1"><h3 class="text-sm font-bold text-dark-950 dark:text-white">${product.name} <span class="bg-red-50 dark:bg-red-950/40 text-red-500 text-[9px] font-bold px-1.5 py-0.5 rounded">خصم تعاقدي</span></h3><p class="text-stone-500 dark:text-stone-400 text-[11px]">${product.desc || ''}</p><div class="pt-1.5 flex items-center justify-between text-xs">${isShowPrice ? `<span class="font-bold text-red-500">${priceDisplay}</span>` : '<span class="text-stone-400">سعر مخفض للكميات الكبرى</span>'}<a href="https://wa.me/${whatsappNumber}?text=طلب خصم: ${encodeURIComponent(product.name)}" target="_blank" class="font-bold text-primary-500 hover:underline">الاستفادة من العرض</a></div></div>`;
+            offerCard.innerHTML = `<img src="${product.image || 'https://images.unsplash.com/photo-1542332213-9b5a5a3fda35?q=80&w=600&auto=format&fit=crop'}" class="w-20 h-20 rounded-xl object-cover" alt=""><div class="space-y-1 text-center sm:text-right flex-1"><h3 class="text-sm font-bold text-dark-950 dark:text-white">${product.name} <span class="bg-red-50 dark:bg-red-950/40 text-red-500 text-[9px] font-bold px-1.5 py-0.5 rounded">${product.offerDiscount ? '🔥 خصم ' + product.offerDiscount + '%' : 'خصم تعاقدي'}</span></h3><p class="text-stone-500 dark:text-stone-400 text-[11px]">${product.desc || ''}</p><div class="pt-1.5 flex items-center justify-between text-xs">${isShowPrice ? `<span class="font-bold text-red-500">${priceDisplay}</span>` : '<span class="text-stone-400">سعر مخفض للكميات الكبرى</span>'}<a href="https://wa.me/${whatsappNumber}?text=طلب خصم: ${encodeURIComponent(product.name)}" target="_blank" class="font-bold text-primary-500 hover:underline">الاستفادة من العرض</a></div></div>`;
             offersGrid.appendChild(offerCard);
         }
 
@@ -410,90 +526,11 @@ function renderUI() {
     renderAdminChannelsList();
     renderAdminSocialLinksList();
     renderAdminMediaList();
+    renderAdminOffersTable();
 }
 
 window.renderUI = renderUI;
 
-function renderAdminChannelsList() {
-    const c = document.getElementById('admin-channels-list'); if (!c) return;
-    c.innerHTML = '';
-    (window.websiteSettings.channels || []).forEach(ch => {
-        const d = document.createElement('div');
-        d.className = 'flex flex-wrap items-center gap-2 bg-white dark:bg-dark-900 p-3 rounded-xl border border-stone-200 dark:border-stone-800';
-        d.innerHTML = `<i class="${ch.icon} text-lg text-${ch.color}-500 w-8 text-center"></i>
-        <input type="text" value="${ch.label}" data-ch-id="${ch.id}" data-field="label" class="flex-1 min-w-[120px] bg-stone-50 dark:bg-dark-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1.5 text-xs channel-input" />
-        <input type="text" value="${ch.value}" data-ch-id="${ch.id}" data-field="value" class="flex-1 min-w-[120px] bg-stone-50 dark:bg-dark-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1.5 text-xs channel-input text-left font-mono" />
-        <select data-ch-id="${ch.id}" data-field="action" class="bg-stone-50 dark:bg-dark-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1.5 text-xs channel-input">
-            <option value="tel" ${ch.action==='tel'?'selected':''}>هاتف</option>
-            <option value="mailto" ${ch.action==='mailto'?'selected':''}>بريد</option>
-            <option value="whatsapp" ${ch.action==='whatsapp'?'selected':''}>واتساب</option>
-            <option value="text" ${ch.action==='text'?'selected':''}>نص</option>
-        </select>
-        <input type="text" value="${ch.icon}" data-ch-id="${ch.id}" data-field="icon" class="w-28 bg-stone-50 dark:bg-dark-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1.5 text-xs channel-input text-left font-mono" />
-        <select data-ch-id="${ch.id}" data-field="color" class="bg-stone-50 dark:bg-dark-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1.5 text-xs channel-input">
-            <option value="primary" ${ch.color==='primary'?'selected':''}>برتقالي</option>
-            <option value="gold" ${ch.color==='gold'?'selected':''}>ذهبي</option>
-            <option value="stone" ${ch.color==='stone'?'selected':''}>رمادي</option>
-            <option value="red" ${ch.color==='red'?'selected':''}>أحمر</option>
-            <option value="green" ${ch.color==='green'?'selected':''}>أخضر</option>
-            <option value="blue" ${ch.color==='blue'?'selected':''}>أزرق</option>
-            <option value="purple" ${ch.color==='purple'?'selected':''}>بنفسجي</option>
-        </select>
-        <button onclick="deleteChannel('${ch.id}')" class="w-7 h-7 rounded-lg bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white flex items-center justify-center shrink-0"><i class="fa-solid fa-xmark text-xs"></i></button>`;
-        c.appendChild(d);
-    });
-    c.querySelectorAll('.channel-input').forEach(inp => {
-        inp.addEventListener('change', function() {
-            const id = this.dataset.chId, f = this.dataset.field;
-            const idx = (window.websiteSettings.channels || []).findIndex(c => c.id === id);
-            if (idx >= 0) window.websiteSettings.channels[idx][f] = this.value;
-        });
-    });
-}
-
-function renderAdminSocialLinksList() {
-    const c = document.getElementById('admin-social-links-list'); if (!c) return;
-    c.innerHTML = '';
-    (window.websiteSettings.socialLinks || []).forEach(sl => {
-        const d = document.createElement('div');
-        d.className = 'flex flex-wrap items-center gap-2 bg-white dark:bg-dark-900 p-3 rounded-xl border border-stone-200 dark:border-stone-800';
-        d.innerHTML = `<i class="${sl.icon} text-lg text-${sl.color}-500 w-8 text-center"></i>
-        <input type="text" value="${sl.platform || ''}" data-sl-id="${sl.id}" data-field="platform" class="flex-1 min-w-[100px] bg-stone-50 dark:bg-dark-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1.5 text-xs social-input" />
-        <input type="text" value="${sl.url}" data-sl-id="${sl.id}" data-field="url" class="flex-1 min-w-[150px] bg-stone-50 dark:bg-dark-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1.5 text-xs social-input text-left font-mono" />
-        <input type="text" value="${sl.icon}" data-sl-id="${sl.id}" data-field="icon" class="w-28 bg-stone-50 dark:bg-dark-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1.5 text-xs social-input text-left font-mono" />
-        <select data-sl-id="${sl.id}" data-field="color" class="bg-stone-50 dark:bg-dark-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1.5 text-xs social-input">
-            <option value="primary" ${sl.color==='primary'?'selected':''}>برتقالي</option>
-            <option value="blue" ${sl.color==='blue'?'selected':''}>أزرق</option>
-            <option value="red" ${sl.color==='red'?'selected':''}>أحمر</option>
-            <option value="green" ${sl.color==='green'?'selected':''}>أخضر</option>
-            <option value="purple" ${sl.color==='purple'?'selected':''}>بنفسجي</option>
-            <option value="stone" ${sl.color==='stone'?'selected':''}>رمادي</option>
-            <option value="gold" ${sl.color==='gold'?'selected':''}>ذهبي</option>
-        </select>
-        <button onclick="deleteSocialLink('${sl.id}')" class="w-7 h-7 rounded-lg bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white flex items-center justify-center shrink-0"><i class="fa-solid fa-xmark text-xs"></i></button>`;
-        c.appendChild(d);
-    });
-    c.querySelectorAll('.social-input').forEach(inp => {
-        inp.addEventListener('change', function() {
-            const id = this.dataset.slId, f = this.dataset.field;
-            const idx = (window.websiteSettings.socialLinks || []).findIndex(s => s.id === id);
-            if (idx >= 0) window.websiteSettings.socialLinks[idx][f] = this.value;
-        });
-    });
-}
-
-function renderAdminMediaList() {
-    const list = document.getElementById('admin-media-list'); if (!list) return;
-    list.innerHTML = '';
-    window.mediaItems.forEach((item, index) => {
-        const div = document.createElement('div');
-        div.className = 'flex justify-between items-center bg-white dark:bg-dark-900 p-2 rounded-lg border border-stone-200 dark:border-stone-800 text-xs';
-        div.innerHTML = `<span>${item.title} (${item.type === 'image' ? 'صورة' : 'فيديو'})</span><button onclick="deleteMediaItem(${index})" class="text-red-500 hover:text-red-700"><i class="fa-solid fa-trash"></i></button>`;
-        list.appendChild(div);
-    });
-}
-
-// دوال عرض الصورة بحجم كبير
 window.openImageViewer = function(src) {
     const modal = document.getElementById('image-viewer-modal');
     const img = document.getElementById('image-viewer-img');
@@ -514,7 +551,6 @@ document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') closeImageViewer();
 });
 
-// مراقبة المصادقة والبيانات
 let unsubscribeProducts = null;
 let unsubscribeSettings = null;
 let unsubscribeMedia = null;
