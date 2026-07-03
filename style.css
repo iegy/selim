@@ -58,3 +58,13 @@ body { font-family: 'Cairo', 'Poppins', sans-serif; transition: background-color
     padding: 0.15rem 0.5rem;
     border-radius: 0.5rem;
 }
+/* تنسيق القائمة المنسدلة للموبايل */
+#mobile-menu {
+    transition: all 0.3s ease;
+}
+#mobile-menu.hidden {
+    display: none;
+}
+#mobile-menu:not(.hidden) {
+    display: block;
+}
